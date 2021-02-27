@@ -10,7 +10,7 @@ open class HLSCachingReverseProxyServer {
 
   private(set) var port: Int?
 
-  public init(webServer: GCDWebServer, urlSession: URLSession, cache: PINCaching) {
+  public init(webServer: GCDWebServer = GCDWebServer(), urlSession: URLSession = URLSession.shared, cache: PINCaching = PINCache.shared) {
     self.webServer = webServer
     self.urlSession = urlSession
     self.cache = cache
