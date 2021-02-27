@@ -10,15 +10,17 @@ open class HLSCachingReverseProxyServer {
 
   private let usingCache: Bool
   private let playListModification: ((Data) -> (Data))?
-    
+  private let customCacheKey: ((URL) -> String)?
+
   private(set) var port: Int?
 
-  public init(webServer: GCDWebServer = GCDWebServer(), urlSession: URLSession = URLSession.shared, cache: PINCaching = PINCache.shared, usingCache: Bool = true, playListModification: ((Data) -> (Data))? = nil) {
+  public init(webServer: GCDWebServer = GCDWebServer(), urlSession: URLSession = URLSession.shared, cache: PINCaching = PINCache.shared, usingCache: Bool = true, playListModification: ((Data) -> (Data))? = nil, customCacheKey: ((URL) -> String)? = nil) {
     self.webServer = webServer
     self.urlSession = urlSession
     self.cache = cache
     self.usingCache = usingCache
     self.playListModification = playListModification
+    self.customCacheKey = customCacheKey
 
     self.addRequestHandlers()
   }
@@ -200,6 +202,10 @@ open class HLSCachingReverseProxyServer {
   }
 
   private func cacheKey(for resourceURL: URL) -> String {
+    if let customCacheKey = self.customCacheKey {
+        return customCacheKey(resourceURL)
+    }
+    
     return resourceURL.absoluteString.data(using: .utf8)!.base64EncodedString()
   }
 }
