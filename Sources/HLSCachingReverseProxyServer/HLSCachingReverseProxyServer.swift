@@ -8,12 +8,15 @@ open class HLSCachingReverseProxyServer {
   private let urlSession: URLSession
   private let cache: PINCaching
 
+  private let usingCache: Bool
+
   private(set) var port: Int?
 
-  public init(webServer: GCDWebServer = GCDWebServer(), urlSession: URLSession = URLSession.shared, cache: PINCaching = PINCache.shared) {
+  public init(webServer: GCDWebServer = GCDWebServer(), urlSession: URLSession = URLSession.shared, cache: PINCaching = PINCache.shared, usingCache: Bool = true) {
     self.webServer = webServer
     self.urlSession = urlSession
     self.cache = cache
+    self.usingCache = usingCache
 
     self.addRequestHandlers()
   }
@@ -92,8 +95,10 @@ open class HLSCachingReverseProxyServer {
         return completion(GCDWebServerErrorResponse(statusCode: 400))
       }
 
-      if let cachedData = self.cachedData(for: originURL) {
-        return completion(GCDWebServerDataResponse(data: cachedData, contentType: "video/mp2t"))
+      if self.usingCache {
+        if let cachedData = self.cachedData(for: originURL) {
+          return completion(GCDWebServerDataResponse(data: cachedData, contentType: "video/mp2t"))
+        }
       }
 
       let task = self.urlSession.dataTask(with: originURL) { data, response, error in
@@ -104,7 +109,9 @@ open class HLSCachingReverseProxyServer {
         let contentType = response.mimeType ?? "video/mp2t"
         completion(GCDWebServerDataResponse(data: data, contentType: contentType))
 
-        self.saveCacheData(data, for: originURL)
+        if self.usingCache {
+          self.saveCacheData(data, for: originURL)
+        }
       }
 
       task.resume()
