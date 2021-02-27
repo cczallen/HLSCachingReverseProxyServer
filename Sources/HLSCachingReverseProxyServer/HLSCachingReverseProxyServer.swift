@@ -9,14 +9,16 @@ open class HLSCachingReverseProxyServer {
   private let cache: PINCaching
 
   private let usingCache: Bool
-
+  private let playListModification: ((Data) -> (Data))?
+    
   private(set) var port: Int?
 
-  public init(webServer: GCDWebServer = GCDWebServer(), urlSession: URLSession = URLSession.shared, cache: PINCaching = PINCache.shared, usingCache: Bool = true) {
+  public init(webServer: GCDWebServer = GCDWebServer(), urlSession: URLSession = URLSession.shared, cache: PINCaching = PINCache.shared, usingCache: Bool = true, playListModification: ((Data) -> (Data))? = nil) {
     self.webServer = webServer
     self.urlSession = urlSession
     self.cache = cache
     self.usingCache = usingCache
+    self.playListModification = playListModification
 
     self.addRequestHandlers()
   }
@@ -78,7 +80,9 @@ open class HLSCachingReverseProxyServer {
 
         let playlistData = self.reverseProxyPlaylist(with: data, forOriginURL: originURL)
         let contentType = response.mimeType ?? "application/x-mpegurl"
-        completion(GCDWebServerDataResponse(data: playlistData, contentType: contentType))
+        
+        var responseData = self.playListModification != nil ? self.playListModification!(playlistData) : playlistData
+        completion(GCDWebServerDataResponse(data: responseData, contentType: contentType))
       }
 
       task.resume()
