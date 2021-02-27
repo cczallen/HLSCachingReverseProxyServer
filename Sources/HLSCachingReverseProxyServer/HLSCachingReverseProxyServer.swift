@@ -11,16 +11,27 @@ open class HLSCachingReverseProxyServer {
   private let usingCache: Bool
   private let playListModification: ((Data) -> (Data))?
   private let customCacheKey: ((URL) -> String)?
+  private let customCacheObjectForKey: ((String) -> Data?)?
+  private let customCacheSetObject: ((String, Data) -> Void)?
 
   private(set) var port: Int?
 
-  public init(webServer: GCDWebServer = GCDWebServer(), urlSession: URLSession = URLSession.shared, cache: PINCaching = PINCache.shared, usingCache: Bool = true, playListModification: ((Data) -> (Data))? = nil, customCacheKey: ((URL) -> String)? = nil) {
+  public init(webServer: GCDWebServer = GCDWebServer(),
+              urlSession: URLSession = URLSession.shared,
+              cache: PINCaching = PINCache.shared,
+              usingCache: Bool = true,
+              playListModification: ((Data) -> (Data))? = nil,
+              customCacheKey: ((URL) -> String)? = nil,
+              customCacheObjectForKey: ((String) -> Data?)? = nil,
+              customCacheSetObject: ((String, Data) -> Void)? = nil) {
     self.webServer = webServer
     self.urlSession = urlSession
     self.cache = cache
     self.usingCache = usingCache
     self.playListModification = playListModification
     self.customCacheKey = customCacheKey
+    self.customCacheObjectForKey = customCacheObjectForKey
+    self.customCacheSetObject = customCacheSetObject
 
     self.addRequestHandlers()
   }
@@ -193,11 +204,18 @@ open class HLSCachingReverseProxyServer {
 
   private func cachedData(for resourceURL: URL) -> Data? {
     let key = self.cacheKey(for: resourceURL)
+    if let customCacheObjectForKey = self.customCacheObjectForKey {
+        return customCacheObjectForKey(key)
+    }
     return self.cache.object(forKey: key) as? Data
   }
 
   private func saveCacheData(_ data: Data, for resourceURL: URL) {
     let key = self.cacheKey(for: resourceURL)
+    if let customCacheSetObject = self.customCacheSetObject {
+        customCacheSetObject(key, data)
+        return
+    }
     self.cache.setObject(data, forKey: key)
   }
 
