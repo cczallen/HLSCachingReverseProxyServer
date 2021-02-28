@@ -6,9 +6,8 @@ open class HLSCachingReverseProxyServer {
 
   private let webServer: GCDWebServer
   private let urlSession: URLSession
-  private let cache: PINCaching
+  private let pinCache: PINCaching?
 
-  private let usingCache: Bool
   private let playListModification: ((Data) -> (Data))?
   private let customCacheKey: ((URL) -> String)?
   private let customCacheObjectForKey: ((String) -> Data?)?
@@ -18,16 +17,14 @@ open class HLSCachingReverseProxyServer {
 
   public init(webServer: GCDWebServer = GCDWebServer(),
               urlSession: URLSession = URLSession.shared,
-              cache: PINCaching = PINCache.shared,
-              usingCache: Bool = true,
+              pinCache: PINCaching? = PINCache.shared,
               playListModification: ((Data) -> (Data))? = nil,
               customCacheKey: ((URL) -> String)? = nil,
               customCacheObjectForKey: ((String) -> Data?)? = nil,
               customCacheSetObject: ((String, Data) -> Void)? = nil) {
     self.webServer = webServer
     self.urlSession = urlSession
-    self.cache = cache
-    self.usingCache = usingCache
+    self.pinCache = pinCache
     self.playListModification = playListModification
     self.customCacheKey = customCacheKey
     self.customCacheObjectForKey = customCacheObjectForKey
@@ -112,10 +109,8 @@ open class HLSCachingReverseProxyServer {
         return completion(GCDWebServerErrorResponse(statusCode: 400))
       }
 
-      if self.usingCache {
-        if let cachedData = self.cachedData(for: originURL) {
-          return completion(GCDWebServerDataResponse(data: cachedData, contentType: "video/mp2t"))
-        }
+      if let cachedData = self.cachedData(for: originURL) {
+        return completion(GCDWebServerDataResponse(data: cachedData, contentType: "video/mp2t"))
       }
 
       let task = self.urlSession.dataTask(with: originURL) { data, response, error in
@@ -126,9 +121,7 @@ open class HLSCachingReverseProxyServer {
         let contentType = response.mimeType ?? "video/mp2t"
         completion(GCDWebServerDataResponse(data: data, contentType: contentType))
 
-        if self.usingCache {
-          self.saveCacheData(data, for: originURL)
-        }
+        self.saveCacheData(data, for: originURL)
       }
 
       task.resume()
@@ -207,7 +200,7 @@ open class HLSCachingReverseProxyServer {
     if let customCacheObjectForKey = self.customCacheObjectForKey {
         return customCacheObjectForKey(key)
     }
-    return self.cache.object(forKey: key) as? Data
+    return self.pinCache?.object(forKey: key) as? Data
   }
 
   private func saveCacheData(_ data: Data, for resourceURL: URL) {
@@ -216,7 +209,7 @@ open class HLSCachingReverseProxyServer {
         customCacheSetObject(key, data)
         return
     }
-    self.cache.setObject(data, forKey: key)
+    self.pinCache?.setObject(data, forKey: key)
   }
 
   private func cacheKey(for resourceURL: URL) -> String {
